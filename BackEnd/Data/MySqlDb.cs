@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using MySqlConnector;
 using System.Data;
 
@@ -7,11 +7,17 @@ namespace Backend.Data;
 public class MySqlDb
 {
     private readonly string _cs;
+
     public MySqlDb(IConfiguration cfg)
     {
-        _cs = cfg.GetConnectionString("MySql")!;
-    }
+        var cs = cfg.GetConnectionString("MySql");
+        if (string.IsNullOrWhiteSpace(cs))
+        {
+            throw new InvalidOperationException("MySql connection string is missing. Set the ConnectionStrings__MySql environment variable or update configuration.");
+        }
 
+        _cs = cs;
+    }
 
     public async Task<IEnumerable<T>> QueryAsync<T>(string sql, object? param = null)
     {
