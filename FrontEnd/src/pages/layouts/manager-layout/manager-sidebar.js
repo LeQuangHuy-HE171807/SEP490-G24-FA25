@@ -1,27 +1,31 @@
-import React from 'react';
-import { Menu } from 'antd';
-import { Link, useLocation } from 'react-router-dom';
+import React from "react";
+import { Menu } from "antd";
+import { Link, useLocation } from "react-router-dom";
 import {
   DashboardOutlined,
   BookOutlined,
-  
-} from '@ant-design/icons';
+  ReadOutlined,
+} from "@ant-design/icons";
 
 const ManagerSidebar = () => {
   const location = useLocation();
 
   const items = [
     {
-      key: '/manager/dashboard',
+      key: "/manager/dashboard",
       icon: <DashboardOutlined />,
       label: <Link to="/manager/dashboard">Dashboard</Link>,
     },
     {
-      key: '/manager/class',
+      key: "/manager/class",
       icon: <BookOutlined />,
       label: <Link to="/manager/class">List Class</Link>,
     },
-    
+    {
+      key: "/manager/subject",
+      icon: <ReadOutlined />,
+      label: <Link to="/manager/subject">List Subject</Link>,
+    },
   ];
 
   return (
