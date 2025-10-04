@@ -36,6 +36,7 @@ DefaultTypeMap.MatchNamesWithUnderscores = true;
 builder.Services.AddSingleton<MySqlDb>();
 builder.Services.AddScoped<IStudentsHandle, StudentsHandle>();
 builder.Services.AddScoped<IClassHandle, ClassHandle>();
+builder.Services.AddScoped<ISubjectHandle, SubjectHandle>();
 
 var app = builder.Build();
 
