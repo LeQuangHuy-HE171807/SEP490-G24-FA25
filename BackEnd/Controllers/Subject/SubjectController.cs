@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using FJAP.Models; 
 namespace FJAP.Controllers.Manager
 {
+    //SangTV
     [ApiController]
     [Route("api/manager/subjects")]
     public class SubjectController : ControllerBase
