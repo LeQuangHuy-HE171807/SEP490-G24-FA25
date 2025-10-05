@@ -1,7 +1,7 @@
 using Backend.Data;
 using Dapper;
 using FAJP.Models;
-
+using FJAP.Models;
 namespace FJAP.Handles.Manager
 {
     // Interface để DI vào controller
@@ -10,6 +10,7 @@ namespace FJAP.Handles.Manager
         Task<IEnumerable<Class>> GetAllAsync();
         Task<IEnumerable<ClassSubjectDetail>> GetSubjectsAsync(string classId);
         Task UpdateStatusAsync(string classId, bool status);
+        Task<IEnumerable<LookupItem>> GetAllActiveAsync();
         // sau này có thể thêm: GetByIdAsync, CreateAsync, UpdateAsync, DeleteAsync...
     }
 
@@ -73,6 +74,18 @@ namespace FJAP.Handles.Manager
                 Status = status ? "Active" : "Inactive",
                 ClassId = classId
             });
+        }
+        public async Task<IEnumerable<LookupItem>> GetAllActiveAsync()
+        {
+            const string sql = @"
+                SELECT 
+                    class_id AS Id, 
+                    class_name AS Name 
+                FROM class 
+                WHERE status = 'Active'
+                ORDER BY class_name";
+
+            return await _db.QueryAsync<LookupItem>(sql);
         }
     }
 }

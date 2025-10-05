@@ -1,22 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Button,
-  Input,
-  Select,
-  Space,
-  Table,
-  Tooltip,
-  Switch,
-  message,
-  Tag,
-} from "antd";
-import {
-  EyeOutlined,
-  PlusOutlined,
-  SearchOutlined,
-  EditOutlined,
-  DeleteOutlined,
-} from "@ant-design/icons";
+import {Button,Input,Select,Space,Table,Tooltip,Switch,message,Tag,} from "antd";
+import {EyeOutlined,PlusOutlined,SearchOutlined,EditOutlined,DeleteOutlined,} from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import SubjectListApi from "../../../api/SubjectList";
 const STATUS_FILTER_OPTIONS = [
@@ -30,16 +14,11 @@ const toStatusLabel = (value) => (value ? "Active" : "Inactive");
 const parseStatus = (raw) => {
   if (typeof raw === "boolean") {
     return raw;
-  }
-
-  if (raw === null || raw === undefined) {
+  }if (raw === null || raw === undefined) {
     return false;
-  }
-
-  if (typeof raw === "number") {
+  }if (typeof raw === "number") {
     return raw === 1;
   }
-
   const normalized = raw.toString().trim().toLowerCase();
   return ["1", "true", "show", "active", "enabled", "on"].includes(normalized);
 };
@@ -47,13 +26,7 @@ const parseStatus = (raw) => {
 export default function SubjectList() {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
-    search: "",
-    class: "all",
-    level: "all",
-    semester: "all",
-    status: "all",
-  });
+  const [filters, setFilters] = useState({search: "",class: "all",level: "all",semester: "all",status: "all",});
   const [pagination, setPagination] = useState({ current: 1, pageSize: 8 });
   const { current: currentPage, pageSize } = pagination;
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
@@ -77,7 +50,6 @@ export default function SubjectList() {
         levelName,
         semesterName,
         passMark: item.passMark ?? item.pass_mark ?? 0,
-        totalStudents: item.totalStudents ?? item.total_students ?? 0,
         description: item.description ?? "",
         createdAt: item.createdAt ?? item.created_at ?? null,
         status: statusBool,
@@ -127,34 +99,21 @@ export default function SubjectList() {
 
   const filteredSubjects = subjects.filter((item) => {
     let matchesSearch = true;
-
     if (searchTerm) {
       const isNumericOnly = /^\d+$/.test(searchTerm);
-
       if (isNumericOnly) {
         const idDigits = (item.subjectId ?? "").toString().replace(/\D/g, "");
         matchesSearch = idDigits.includes(searchTerm);
       } else {
-        const candidates = [
-          item.subjectId,
-          item.subjectCode,
-          item.subjectName,
-          item.className,
-          item.levelName,
-          item.semesterName,
-          item.statusLabel,
-        ];
-
+        const candidates = [item.subjectId,item.subjectCode,item.subjectName,item.className,item.levelName,item.semesterName,item.statusLabel];
         matchesSearch = candidates
           .filter(Boolean)
           .some((value) => value.toString().toLowerCase().includes(searchTerm));
       }
     }
-
     if (!matchesSearch) {
       return false;
     }
-
     const matchesClass =
       filters.class === "all" || item.className === filters.class;
     const matchesLevel =
@@ -165,15 +124,11 @@ export default function SubjectList() {
       filters.status === "all" ||
       (filters.status === "active" && item.status) ||
       (filters.status === "inactive" && !item.status);
-
     return matchesClass && matchesLevel && matchesSemester && matchesStatus;
   });
 
   useEffect(() => {
-    const maxPage = Math.max(
-      1,
-      Math.ceil(filteredSubjects.length / pageSize) || 1
-    );
+    const maxPage = Math.max(1,Math.ceil(filteredSubjects.length / pageSize) || 1);
 
     if (currentPage > maxPage) {
       setPagination((prev) => ({ ...prev, current: maxPage }));
@@ -184,7 +139,6 @@ export default function SubjectList() {
     setFilters((prev) => ({ ...prev, [field]: value }));
     setPagination((prev) => ({ ...prev, current: 1 }));
   };
-
   const handleCreateSubject = () => {
     navigate("/manager/subjects/create");
   };
@@ -208,7 +162,6 @@ export default function SubjectList() {
           : item
       )
     );
-
     try {
       await SubjectListApi.updateStatus(record.subjectId, checked);
       message.success(
@@ -257,13 +210,7 @@ export default function SubjectList() {
       return;
     }
 
-    if (
-      !window.confirm(
-        `Are you sure you want to delete "${record.subjectName}"?`
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(`Are you sure you want to delete "${record.subjectName}"?`)) {return;}
 
     try {
       await SubjectListApi.delete(record.subjectId);
@@ -277,13 +224,7 @@ export default function SubjectList() {
     }
   };
 
-  const actionButtonStyle = {
-    border: "none",
-    background: "transparent",
-    cursor: "pointer",
-    padding: 0,
-    color: "#4a5568",
-  };
+  const actionButtonStyle = {border: "none",background: "transparent",cursor: "pointer",padding: 0,color: "#4a5568",};
 
   const columns = [
     {
@@ -298,13 +239,14 @@ export default function SubjectList() {
       title: "Subject Code",
       dataIndex: "subjectCode",
       key: "subjectCode",
-      width: 120,
+      width: 90,
       render: (value) => <Tag color="blue">{value}</Tag>,
     },
     {
       title: "Subject Name",
       dataIndex: "subjectName",
       key: "subjectName",
+      width: 200,
       render: (value) => <strong>{value}</strong>,
     },
     {
@@ -317,34 +259,27 @@ export default function SubjectList() {
       title: "Level",
       dataIndex: "levelName",
       key: "levelName",
-      width: 100,
+      width: 70,
     },
     {
       title: "Semester",
       dataIndex: "semesterName",
       key: "semesterName",
-      width: 120,
+      width: 100,
     },
     {
       title: "Pass Mark",
       dataIndex: "passMark",
       key: "passMark",
       align: "center",
-      width: 100,
-      render: (value) => `${value}%`,
-    },
-    {
-      title: "Students",
-      dataIndex: "totalStudents",
-      key: "totalStudents",
-      align: "center",
-      width: 90,
+      width: 70,
+      render: (value) => `${value}`,
     },
     {
       title: "Status",
       key: "status",
       align: "center",
-      width: 120,
+      width: 100,
       render: (_value, record) => (
         <Switch
           checkedChildren="Active"
@@ -353,6 +288,18 @@ export default function SubjectList() {
           onChange={(checked) => handleStatusToggle(record, checked)}
           loading={updatingStatusId === record.subjectId}
         />
+      ),
+    },
+    {
+      title: "Description",
+      dataIndex: "description",
+      key: "description",
+      width: 200,
+      ellipsis: true, 
+      render: (value) => (
+        <Tooltip title={value || "No description"}>
+          <span>{value || "-"}</span>
+        </Tooltip>
       ),
     },
     {
