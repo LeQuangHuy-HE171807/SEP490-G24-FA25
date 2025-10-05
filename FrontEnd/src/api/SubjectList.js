@@ -76,6 +76,10 @@ class SubjectList {
     );
     return response.data;
   }
+  static async getFormOptions() {
+    const response = await http.get("api/manager/subjects/options");
+    return response.data;
+  }
 }
 
 export default SubjectList;

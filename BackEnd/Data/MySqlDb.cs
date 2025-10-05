@@ -30,4 +30,16 @@ public class MySqlDb
         await using var con = new MySqlConnection(_cs);
         return await con.ExecuteAsync(sql, param);
     }
+
+    public async Task<T?> QueryFirstOrDefaultAsync<T>(string sql, object? param = null)
+    {
+        await using var con = new MySqlConnection(_cs);
+        return await con.QueryFirstOrDefaultAsync<T>(sql, param);
+    }
+    public async Task<T> ExecuteScalarAsync<T>(string sql, object? param = null)
+    {
+        await using var con = new MySqlConnection(_cs);
+        return await con.ExecuteScalarAsync<T>(sql, param);
+    }
+
 }

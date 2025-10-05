@@ -4,6 +4,8 @@ import StudentList from "../pages/student/studentTable/StudentList";
 import ClassPage from "../pages/manager";
 import ClassDetail from "../pages/manager/ClassDetail";
 import SubjectPage from "../pages/manager/SubjectManage/Index";
+import CreateSubject from "../pages/manager/SubjectManage/CreateSubject";
+import EditSubject from "../pages/manager/SubjectManage/EditSubject";
 import ManagerLayout from "../pages/layouts/manager-layout";
 
 function Home() {
@@ -23,6 +25,8 @@ export default function App() {
         <Route path="/studentTable" element={<StudentList />} />
         <Route path="/manager/class" element={<ClassPage />} />
         <Route path="/manager/subject" element={<SubjectPage />} />
+        <Route path="/manager/subjects/create" element={<CreateSubject />} />
+        <Route path="/manager/subjects/edit/:subjectId" element={<EditSubject />} />
         <Route
           path="/manager/class/:classId"
           element={

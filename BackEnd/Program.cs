@@ -37,6 +37,8 @@ builder.Services.AddSingleton<MySqlDb>();
 builder.Services.AddScoped<IStudentsHandle, StudentsHandle>();
 builder.Services.AddScoped<IClassHandle, ClassHandle>();
 builder.Services.AddScoped<ISubjectHandle, SubjectHandle>();
+builder.Services.AddScoped<ILevelHandle, LevelHandle>();
+builder.Services.AddScoped<ISemesterHandle, SemesterHandle>();
 
 var app = builder.Build();
 
