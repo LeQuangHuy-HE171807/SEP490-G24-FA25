@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Input, Select, Space, Table, Tooltip, Switch, message } from "antd";
-import { EyeOutlined, SearchOutlined } from "@ant-design/icons";
+import React, { useEffect, useMemo, useState } from "react";
+import { Button, Input, Select, Space, Table, Tooltip, Switch, message } from "antd";
+import { EyeOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import ClassListApi from "../../../api/ClassList";
-import ClassForm from "./ClassForm";
+import ClassListApi from "../../api/ClassList";
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All Statuses" },
@@ -42,49 +41,37 @@ export default function ClassList() {
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const navigate = useNavigate();
 
-  const normalizeClasses = useCallback(
-    (list = []) =>
-      list.map((item, index) => {
-        const classId = item.class_id ?? item.id ?? null;
-        const semester =
-          item.semester ?? item.semester_name ?? item.semesterName ?? "-";
-        const startDate = item.start_date ?? item.startDate ?? item.begin_date ?? null;
-        const endDate = item.end_date ?? item.endDate ?? item.finish_date ?? null;
-        const rawStatus = item.status ?? item.Status ?? item.state ?? null;
-        const statusBool = parseStatus(rawStatus);
-        const statusLabel = rawStatus?.toString() ?? toStatusLabel(statusBool);
+  const normalizeClasses = (list = []) =>
+    list.map((item, index) => {
+      const classId = item.class_id ?? item.id ?? null;
+      const semester =
+        item.semester ?? item.semester_name ?? item.semesterName ?? "-";
+      const startDate = item.start_date ?? item.startDate ?? item.begin_date ?? null;
+      const endDate = item.end_date ?? item.endDate ?? item.finish_date ?? null;
+      const rawStatus = item.status ?? item.Status ?? item.state ?? null;
+      const statusBool = parseStatus(rawStatus);
+      const statusLabel = rawStatus?.toString() ?? toStatusLabel(statusBool);
 
-        return {
-          class_id: classId ?? `CL${String(index + 1).padStart(3, "0")}`,
-          class_name: item.class_name ?? item.name ?? "-",
-          semester,
-          start_date: startDate,
-          end_date: endDate,
-          status: statusBool,
-          statusLabel,
-          semesterId: item.semester_id ?? item.semesterId ?? null,
-          levelId: item.level_id ?? item.levelId ?? null,
-        };
-      }),
-    []
-  );
-
-  const loadClasses = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await ClassListApi.getAll();
-      setClasses(normalizeClasses(data ?? []));
-    } catch (error) {
-      console.error("Failed to load classes", error);
-      message.error("Unable to load class list");
-    } finally {
-      setLoading(false);
-    }
-  }, [normalizeClasses]);
+      return {
+        class_id: classId ?? `CL${String(index + 1).padStart(3, "0")}`,
+        class_name: item.class_name ?? item.name ?? "-",
+        semester,
+        start_date: startDate,
+        end_date: endDate,
+        status: statusBool,
+        statusLabel,
+      };
+    });
 
   useEffect(() => {
-    loadClasses();
-  }, [loadClasses]);
+    ClassListApi.getAll()
+      .then((data) => {
+        console.log("✅ Data backend:", data);
+        setClasses(normalizeClasses(data ?? []));
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   const filterOptions = useMemo(() => {
     const seen = new Set();
@@ -164,6 +151,9 @@ export default function ClassList() {
     setPagination((prev) => ({ ...prev, current: 1 }));
   };
 
+  const handleCreateClass = () => {
+    console.log("Create new class");
+  };
 
   const handlePageChange = (page, pageSize) => {
     setPagination((prev) => ({ ...prev, current: page, pageSize }));
@@ -218,8 +208,6 @@ export default function ClassList() {
         state: { className: record.class_name ?? record.class_id }
       });
   };
-
-
 
   const actionButtonStyle = {
     border: "none",
@@ -285,32 +273,6 @@ export default function ClassList() {
               <EyeOutlined />
             </button>
           </Tooltip>
-          <Tooltip title="Edit">
-            <span>
-              <ClassForm
-                type="UPDATE"
-                title={`Edit ${record.class_name}`}
-                classId={record.class_id}
-                classInfo={{
-                  classId: record.class_id,
-                  className: record.class_name,
-                  semesterId: record.semesterId,
-                  levelId: record.levelId,
-                }}
-                reload={loadClasses}
-                triggerProps={{ style: { padding: 0 } }}
-              />
-            </span>
-          </Tooltip>
-          {/* <Tooltip title="Delete">
-            <button
-              type="button"
-              onClick={() => handleDelete(record)}
-              style={{ ...actionButtonStyle, color: "#ff4d4f" }}
-            >
-              <DeleteOutlined />
-            </button>
-          </Tooltip> */}
         </Space>
       ),
     },
@@ -352,13 +314,14 @@ export default function ClassList() {
           />
         </div>
 
-        <ClassForm
-          type="CREATE"
-          title="Create New Class"
-          triggerLabel="Create New Class"
-          triggerProps={{ style: { minWidth: 160 } }}
-          reload={loadClasses}
-        />
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={handleCreateClass}
+          style={{ minWidth: 160 }}
+        >
+          Create New Class
+        </Button>
       </div>
 
       <h2 style={{ marginBottom: 16 }}>Manage Class</h2>
@@ -416,26 +379,3 @@ const filtersRowStyle = {
   flex: 1,
   minWidth: 280,
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

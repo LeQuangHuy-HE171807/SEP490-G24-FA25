@@ -39,7 +39,7 @@ builder.Services.AddScoped<IClassHandle, ClassHandle>();
 builder.Services.AddScoped<ISubjectHandle, SubjectHandle>();
 builder.Services.AddScoped<ILevelHandle, LevelHandle>();
 builder.Services.AddScoped<ISemesterHandle, SemesterHandle>();
-
+builder.Services.AddScoped<IMarkReportHandle, MarkReportHandle>();
 var app = builder.Build();
 
 // ===== Middleware =====
