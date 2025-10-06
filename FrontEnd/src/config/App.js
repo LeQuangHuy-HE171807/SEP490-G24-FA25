@@ -1,8 +1,8 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import StudentList from "../pages/student/studentTable/StudentList";
-import ClassPage from "../pages/manager/ClassManage";
-import ClassDetail from "../pages/manager/ClassManage/ClassDetail";
+import ClassPage from "../pages/manager";
+import ClassDetail from "../pages/manager/ClassDetail";
 import SubjectPage from "../pages/manager/SubjectManage/Index";
 import CreateSubject from "../pages/manager/SubjectManage/CreateSubject";
 import EditSubject from "../pages/manager/SubjectManage/EditSubject";
