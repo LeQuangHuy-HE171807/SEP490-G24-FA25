@@ -17,34 +17,6 @@ class ClassList {
     });
     return response.data;
   }
-
-  static async getFormOptions() {
-    try {
-      const response = await http.get("api/manager/classes/options");
-      return response.data;
-    } catch (error) {
-      if (error?.response?.status === 404) {
-        const fallback = await http.get("api/manager/subjects/options");
-        return fallback.data;
-      }
-      throw error;
-    }
-  }
-
-  static async create(classData) {
-    const response = await http.post("api/manager/classes", classData);
-    return response.data;
-  }
-
-  static async update(classId, classData) {
-    const response = await http.put(`api/manager/classes/${classId}`, classData);
-    return response.data;
-  }
-
-  static async getInfo(classId) {
-    const response = await http.get(`api/manager/classes/${classId}/info`);
-    return response.data;
-  }
 }
 
 export default ClassList;
