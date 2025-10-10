@@ -1,18 +1,11 @@
 import React from "react";
-import Header from "./manager-header";
+import { Outlet } from "react-router-dom";
 import ManagerSidebar from "./manager-sidebar";
 
 const layoutStyles = {
-  minHeight: "100vh",
+  minHeight: "calc(100vh - 56px)",
   display: "flex",
-  flexDirection: "column",
   backgroundColor: "#f5f5f5",
-};
-
-const bodyStyles = {
-  display: "flex",
-  flex: 1,
-  overflow: "hidden",
 };
 
 const sidebarStyles = {
@@ -30,17 +23,14 @@ const mainStyles = {
 };
 
 const ManagerLayout = ({ children }) => {
+  const content = children ?? <Outlet />;
+
   return (
     <div style={layoutStyles}>
-      <Header title="Manager Page" />
-
-      <div style={bodyStyles}>
-        <aside style={sidebarStyles}>
-          <ManagerSidebar />
-        </aside>
-
-        <main style={mainStyles}>{children}</main>
-      </div>
+      <aside style={sidebarStyles}>
+        <ManagerSidebar />
+      </aside>
+      <main style={mainStyles}>{content}</main>
     </div>
   );
 };

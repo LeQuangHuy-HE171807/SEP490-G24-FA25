@@ -1,12 +1,45 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+} from "react-router-dom";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+
+import AuthProvider, { useAuth } from "../pages/login/AuthContext";
+import LoginPage from "../pages/login/LoginPage";
+
 import StudentList from "../pages/student/studentTable/StudentList";
+import ManagerLayout from "../pages/layouts/manager-layout";
 import ClassPage from "../pages/manager";
 import ClassDetail from "../pages/manager/ClassDetail";
 import SubjectPage from "../pages/manager/SubjectManage/Index";
 import CreateSubject from "../pages/manager/SubjectManage/CreateSubject";
 import EditSubject from "../pages/manager/SubjectManage/EditSubject";
-import ManagerLayout from "../pages/layouts/manager-layout";
+import Header from "../common/Header";
+
+function RequireAuth({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function RequireManager({ children }) {
+  const { user } = useAuth();
+  if (!user || Number(user.roleId) !== 2) return <Navigate to="/" replace />;
+  return children;
+}
+
+function ProtectedLayout() {
+  return (
+    <RequireAuth>
+      <Header />
+      <Outlet />
+    </RequireAuth>
+  );
+}
 
 function Home() {
   return (
@@ -18,25 +51,43 @@ function Home() {
 }
 
 export default function App() {
+  const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
+
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/studentTable" element={<StudentList />} />
-        <Route path="/manager/class" element={<ClassPage />} />
-        <Route path="/manager/subject" element={<SubjectPage />} />
-        <Route path="/manager/subjects/create" element={<CreateSubject />} />
-        <Route path="/manager/subjects/edit/:subjectId" element={<EditSubject />} />
-        <Route
-          path="/manager/class/:classId"
-          element={
-            <ManagerLayout>
-              <ClassDetail />
-            </ManagerLayout>
-          }
-        />
-        <Route path="/manager" element={<ManagerLayout />} />
-      </Routes>
-    </Router>
+    <GoogleOAuthProvider clientId={clientId}>
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+
+            <Route element={<ProtectedLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/studentTable" element={<StudentList />} />
+
+              <Route
+                path="/manager"
+                element={
+                  <RequireManager>
+                    <ManagerLayout />
+                  </RequireManager>
+                }
+              >
+                <Route index element={<ClassPage />} />
+                <Route path="class" element={<ClassPage />} />
+                <Route path="class/:classId" element={<ClassDetail />} />
+                <Route path="subject" element={<SubjectPage />} />
+                <Route path="subject/create" element={<CreateSubject />} />
+                <Route
+                  path="subject/edit/:subjectId"
+                  element={<EditSubject />}
+                />
+              </Route>
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }

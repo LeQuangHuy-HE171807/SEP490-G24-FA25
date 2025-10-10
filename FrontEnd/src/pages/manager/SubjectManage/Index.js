@@ -1,12 +1,7 @@
-import ManagerLayout from "../../layouts/manager-layout";
 import SubjectList from "./SubjectList";
 
 const SubjectPage = () => {
-  return (
-    <ManagerLayout>
-      <SubjectList />
-    </ManagerLayout>
-  );
+  return <SubjectList />;
 };
 
 export default SubjectPage;

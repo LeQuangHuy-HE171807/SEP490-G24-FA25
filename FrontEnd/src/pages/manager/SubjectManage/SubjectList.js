@@ -1,8 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {Button,Input,Select,Space,Table,Tooltip,Switch,message,Tag,} from "antd";
-import {EyeOutlined,PlusOutlined,SearchOutlined,EditOutlined,DeleteOutlined,} from "@ant-design/icons";
+import {
+  Button,
+  Input,
+  Select,
+  Space,
+  Table,
+  Tooltip,
+  Switch,
+  message,
+  Tag,
+} from "antd";
+import {
+  EyeOutlined,
+  PlusOutlined,
+  SearchOutlined,
+  EditOutlined,
+  DeleteOutlined,
+} from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import SubjectListApi from "../../../api/SubjectList";
+
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All Statuses" },
   { value: "active", label: "Active" },
@@ -14,9 +31,11 @@ const toStatusLabel = (value) => (value ? "Active" : "Inactive");
 const parseStatus = (raw) => {
   if (typeof raw === "boolean") {
     return raw;
-  }if (raw === null || raw === undefined) {
+  }
+  if (raw === null || raw === undefined) {
     return false;
-  }if (typeof raw === "number") {
+  }
+  if (typeof raw === "number") {
     return raw === 1;
   }
   const normalized = raw.toString().trim().toLowerCase();
@@ -26,7 +45,13 @@ const parseStatus = (raw) => {
 export default function SubjectList() {
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({search: "",class: "all",level: "all",semester: "all",status: "all",});
+  const [filters, setFilters] = useState({
+    search: "",
+    class: "all",
+    level: "all",
+    semester: "all",
+    status: "all",
+  });
   const [pagination, setPagination] = useState({ current: 1, pageSize: 8 });
   const { current: currentPage, pageSize } = pagination;
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
@@ -59,9 +84,10 @@ export default function SubjectList() {
 
   useEffect(() => {
     SubjectListApi.getAll()
-      .then((data) => {
-        console.log("✅ Data backend:", data);
-        setSubjects(normalizeSubjects(data ?? []));
+      .then((response) => {
+        console.log("✅ Data backend:", response);
+        const subjects = response?.data ?? response ?? [];
+        setSubjects(normalizeSubjects(subjects));
         setLoading(false);
       })
       .catch((error) => {
@@ -105,7 +131,15 @@ export default function SubjectList() {
         const idDigits = (item.subjectId ?? "").toString().replace(/\D/g, "");
         matchesSearch = idDigits.includes(searchTerm);
       } else {
-        const candidates = [item.subjectId,item.subjectCode,item.subjectName,item.className,item.levelName,item.semesterName,item.statusLabel];
+        const candidates = [
+          item.subjectId,
+          item.subjectCode,
+          item.subjectName,
+          item.className,
+          item.levelName,
+          item.semesterName,
+          item.statusLabel,
+        ];
         matchesSearch = candidates
           .filter(Boolean)
           .some((value) => value.toString().toLowerCase().includes(searchTerm));
@@ -127,192 +161,124 @@ export default function SubjectList() {
     return matchesClass && matchesLevel && matchesSemester && matchesStatus;
   });
 
-  useEffect(() => {
-    const maxPage = Math.max(1,Math.ceil(filteredSubjects.length / pageSize) || 1);
-
-    if (currentPage > maxPage) {
-      setPagination((prev) => ({ ...prev, current: maxPage }));
-    }
-  }, [filteredSubjects.length, currentPage, pageSize]);
-
-  const handleFilterChange = (field, value) => {
-    setFilters((prev) => ({ ...prev, [field]: value }));
-    setPagination((prev) => ({ ...prev, current: 1 }));
-  };
-  const handleCreateSubject = () => {
-    navigate("/manager/subjects/create");
-  };
-
-  const handlePageChange = (page, pageSize) => {
-    setPagination((prev) => ({ ...prev, current: page, pageSize }));
-  };
-
   const paginatedSubjects = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredSubjects.slice(start, start + pageSize);
   }, [filteredSubjects, currentPage, pageSize]);
 
-  const handleStatusToggle = async (record, checked) => {
-    const previousStatus = record.status;
-    setUpdatingStatusId(record.subjectId);
-    setSubjects((prev) =>
-      prev.map((item) =>
-        item.subjectId === record.subjectId
-          ? { ...item, status: checked, statusLabel: toStatusLabel(checked) }
-          : item
-      )
-    );
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+    setPagination((prev) => ({ ...prev, current: 1 }));
+  };
+
+  const handlePageChange = (page, size) => {
+    setPagination({ current: page, pageSize: size });
+  };
+
+  const handleCreateSubject = () => {
+    navigate("/manager/subject/create");
+  };
+
+  const handleEditSubject = (record) => {
+    navigate(`/manager/subject/edit/${record.subjectId}`);
+  };
+
+  const handleDelete = async (record) => {
     try {
-      await SubjectListApi.updateStatus(record.subjectId, checked);
-      message.success(
-        `${record.subjectName} is now ${checked ? "Active" : "Inactive"}`
+      await SubjectListApi.delete(record.subjectId);
+      message.success("Subject deleted successfully");
+      setSubjects((prev) =>
+        prev.filter((subject) => subject.subjectId !== record.subjectId)
       );
     } catch (error) {
-      message.error("Failed to update subject status");
+      console.error("Delete error:", error);
+      message.error("Failed to delete subject");
+    }
+  };
+
+  const handleStatusChange = async (record, checked) => {
+    setUpdatingStatusId(record.subjectId);
+    try {
+      await SubjectListApi.updateStatus(record.subjectId, checked);
       setSubjects((prev) =>
-        prev.map((item) =>
-          item.subjectId === record.subjectId
-            ? {
-                ...item,
-                status: previousStatus,
-                statusLabel: toStatusLabel(previousStatus),
-              }
-            : item
+        prev.map((subject) =>
+          subject.subjectId === record.subjectId
+            ? { ...subject, status: checked, statusLabel: toStatusLabel(checked) }
+            : subject
         )
       );
+      message.success("Status updated");
+    } catch (error) {
+      console.error("Status update error:", error);
+      message.error("Failed to update status");
     } finally {
       setUpdatingStatusId(null);
     }
   };
 
-  const handleView = (record) => {
-    if (!record?.subjectId) {
-      return;
-    }
-
-    navigate(`/manager/subjects/${record.subjectId}`, {
-      state: { subjectName: record.subjectName ?? record.subjectId },
-    });
-  };
-
-  const handleEdit = (record) => {
-    if (!record?.subjectId) {
-      return;
-    }
-
-    navigate(`/manager/subjects/edit/${record.subjectId}`, {
-      state: { subject: record },
-    });
-  };
-
-  const handleDelete = async (record) => {
-    if (!record?.subjectId) {
-      return;
-    }
-
-    if (!window.confirm(`Are you sure you want to delete "${record.subjectName}"?`)) {return;}
-
-    try {
-      await SubjectListApi.delete(record.subjectId);
-      message.success(`Subject "${record.subjectName}" deleted successfully`);
-      setSubjects((prev) =>
-        prev.filter((item) => item.subjectId !== record.subjectId)
-      );
-    } catch (error) {
-      message.error("Failed to delete subject");
-      console.error("Delete error:", error);
-    }
-  };
-
-  const actionButtonStyle = {border: "none",background: "transparent",cursor: "pointer",padding: 0,color: "#4a5568",};
-
   const columns = [
     {
-      title: "No.",
-      key: "rowNumber",
-      align: "center",
-      width: 60,
-      render: (_value, _record, index) =>
-        (currentPage - 1) * pageSize + index + 1,
+      title: "ID",
+      dataIndex: "subjectId",
+      key: "subjectId",
     },
     {
       title: "Subject Code",
       dataIndex: "subjectCode",
       key: "subjectCode",
-      width: 90,
-      render: (value) => <Tag color="blue">{value}</Tag>,
     },
     {
       title: "Subject Name",
       dataIndex: "subjectName",
       key: "subjectName",
-      width: 200,
-      render: (value) => <strong>{value}</strong>,
     },
     {
       title: "Class",
       dataIndex: "className",
       key: "className",
-      width: 120,
     },
     {
       title: "Level",
       dataIndex: "levelName",
       key: "levelName",
-      width: 70,
     },
     {
       title: "Semester",
       dataIndex: "semesterName",
       key: "semesterName",
-      width: 100,
     },
     {
       title: "Pass Mark",
       dataIndex: "passMark",
       key: "passMark",
-      align: "center",
-      width: 70,
-      render: (value) => `${value}`,
+      render: (value) => value?.toFixed(1),
     },
     {
       title: "Status",
+      dataIndex: "status",
       key: "status",
-      align: "center",
-      width: 100,
-      render: (_value, record) => (
-        <Switch
-          checkedChildren="Active"
-          unCheckedChildren="Inactive"
-          checked={record.status}
-          onChange={(checked) => handleStatusToggle(record, checked)}
-          loading={updatingStatusId === record.subjectId}
-        />
-      ),
-    },
-    {
-      title: "Description",
-      dataIndex: "description",
-      key: "description",
-      width: 200,
-      ellipsis: true, 
-      render: (value) => (
-        <Tooltip title={value || "No description"}>
-          <span>{value || "-"}</span>
-        </Tooltip>
+      render: (_, record) => (
+        <Tag color={record.status ? "green" : "red"}>
+          {record.statusLabel}
+        </Tag>
       ),
     },
     {
       title: "Actions",
       key: "actions",
-      align: "center",
-      width: 120,
+      fixed: "right",
+      width: 180,
       render: (_, record) => (
         <Space size="middle">
-          <Tooltip title="View">
+          <Tooltip title="View details">
             <button
               type="button"
-              onClick={() => handleView(record)}
+              onClick={() =>
+                message.info("Detail view not implemented yet.")
+              }
               style={actionButtonStyle}
             >
               <EyeOutlined />
@@ -321,11 +287,18 @@ export default function SubjectList() {
           <Tooltip title="Edit">
             <button
               type="button"
-              onClick={() => handleEdit(record)}
-              style={{ ...actionButtonStyle, color: "#1890ff" }}
+              onClick={() => handleEditSubject(record)}
+              style={actionButtonStyle}
             >
               <EditOutlined />
             </button>
+          </Tooltip>
+          <Tooltip title="Status">
+            <Switch
+              checked={record.status}
+              onChange={(checked) => handleStatusChange(record, checked)}
+              loading={updatingStatusId === record.subjectId}
+            />
           </Tooltip>
           <Tooltip title="Delete">
             <button
@@ -453,4 +426,15 @@ const filtersRowStyle = {
   alignItems: "center",
   flex: 1,
   minWidth: 280,
+};
+
+const actionButtonStyle = {
+  border: "none",
+  background: "transparent",
+  cursor: "pointer",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  color: "#1677ff",
+  fontSize: 16,
 };

@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Form, Input, InputNumber, Select, Button, Card, message, Spin } from "antd";
+import {
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Button,
+  Card,
+  message,
+  Spin,
+} from "antd";
 import { SaveOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import SubjectListApi from "../../../api/SubjectList";
@@ -19,10 +28,9 @@ export default function SubjectForm({ mode = "create", subjectId = null }) {
 
   const isEditMode = mode === "edit";
 
-  // Wrap loadSubjectData với useCallback
   const loadSubjectData = useCallback(async () => {
     if (!subjectId) return;
-    
+
     setLoading(true);
     try {
       const data = await SubjectListApi.getById(subjectId);
@@ -58,7 +66,6 @@ export default function SubjectForm({ mode = "create", subjectId = null }) {
     }
   };
 
-  // Load form options và subject data
   useEffect(() => {
     loadFormOptions();
     if (isEditMode && subjectId) {
@@ -102,11 +109,7 @@ export default function SubjectForm({ mode = "create", subjectId = null }) {
     <Card
       title={
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={handleCancel}
-            type="text"
-          />
+          <Button icon={<ArrowLeftOutlined />} onClick={handleCancel} type="text" />
           <span>{isEditMode ? "Edit Subject" : "Create New Subject"}</span>
         </div>
       }
@@ -154,7 +157,12 @@ export default function SubjectForm({ mode = "create", subjectId = null }) {
           name="passMark"
           rules={[
             { required: true, message: "Please enter pass mark" },
-            { type: "number", min: 0, max: 10, message: "Pass mark must be between 0 and 10" },
+            {
+              type: "number",
+              min: 0,
+              max: 10,
+              message: "Pass mark must be between 0 and 10",
+            },
           ]}
         >
           <InputNumber
