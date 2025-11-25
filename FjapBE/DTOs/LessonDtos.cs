@@ -21,11 +21,3 @@ public class LessonDto
     public string SubjectCode { get; set; } = "";
 }
 
-
-public class UpdateLessonRequest
-{
-    public string Date { get; set; } = null!; // Format: YYYY-MM-DD
-    public int TimeId { get; set; }
-    public int RoomId { get; set; }
-}
-
