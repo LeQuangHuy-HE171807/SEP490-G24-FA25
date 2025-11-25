@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using FJAP.DTOs;
+using FJAP.Services.Interfaces;
 using FJAP.vn.fpt.edu.models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +13,16 @@ namespace FJAP.Controllers;
 [Authorize]
 public class AttendanceController : ControllerBase
 {
+    private readonly IAttendanceService _attendanceService;
     private readonly FjapDbContext _db;
     private readonly ILogger<AttendanceController> _logger;
 
-    public AttendanceController(FjapDbContext db, ILogger<AttendanceController> logger)
+    public AttendanceController(
+        IAttendanceService attendanceService,
+        FjapDbContext db,
+        ILogger<AttendanceController> logger)
     {
+        _attendanceService = attendanceService;
         _db = db;
         _logger = logger;
     }
@@ -52,13 +59,6 @@ public class AttendanceController : ControllerBase
         return lecturerId.Value;
     }
 
-    private static string FormatDate(DateOnly date) => date.ToString("yyyy-MM-dd");
-
-    private static string FormatTimeRange(TimeOnly start, TimeOnly end)
-    {
-        return $"{start:HH\\:mm}-{end:HH\\:mm}";
-    }
-
     /// <summary>
     /// Lấy danh sách lớp mà giảng viên hiện tại giảng dạy
     /// GET: api/attendance/classes
@@ -69,26 +69,7 @@ public class AttendanceController : ControllerBase
         try
         {
             var lecturerId = await GetCurrentLecturerIdAsync();
-
-            var classes = await _db.Lessons
-                .AsNoTracking()
-                .Where(l => l.LectureId == lecturerId)
-                .GroupBy(l => new
-                {
-                    l.ClassId,
-                    l.Class.ClassName,
-                    SubjectName = l.Class.Subject.SubjectName,
-                    SubjectCode = l.Class.Subject.SubjectCode
-                })
-                .Select(g => new
-                {
-                    g.Key.ClassId,
-                    g.Key.ClassName,
-                    g.Key.SubjectName,
-                    g.Key.SubjectCode
-                })
-                .OrderBy(c => c.ClassName)
-                .ToListAsync();
+            var classes = await _attendanceService.GetClassesAsync(lecturerId);
 
             return Ok(new
             {
@@ -123,34 +104,18 @@ public class AttendanceController : ControllerBase
         try
         {
             var lecturerId = await GetCurrentLecturerIdAsync();
-
-            var lessonsQuery = await _db.Lessons
-                .AsNoTracking()
-                .Where(l => l.ClassId == classId && l.LectureId == lecturerId)
-                .OrderBy(l => l.Date)
-                .ThenBy(l => l.Time.StartTime)
-                .Select(l => new
-                {
-                    l.LessonId,
-                    l.ClassId,
-                    l.Date,
-                    RoomName = l.Room.RoomName,
-                    SubjectName = l.Class.Subject.SubjectName,
-                    StartTime = l.Time.StartTime,
-                    EndTime = l.Time.EndTime
-                })
-                .ToListAsync();
+            var lessons = await _attendanceService.GetLessonsByClassAsync(classId, lecturerId);
 
             return Ok(new
             {
                 code = 200,
-                data = lessonsQuery.Select(l => new
+                data = lessons.Select(l => new
                 {
                     lessonId = l.LessonId,
                     classId = l.ClassId,
-                    date = FormatDate(l.Date),
+                    date = l.Date,
                     roomName = l.RoomName,
-                    timeSlot = FormatTimeRange(l.StartTime, l.EndTime),
+                    timeSlot = l.TimeSlot,
                     subjectName = l.SubjectName
                 })
             });
@@ -164,7 +129,6 @@ public class AttendanceController : ControllerBase
             _logger.LogError(ex, "Failed to load lessons for class {ClassId}", classId);
             return StatusCode(500, new { code = 500, message = "Failed to load lessons" });
         }
-
     }
 
     /// <summary>
@@ -177,83 +141,12 @@ public class AttendanceController : ControllerBase
         try
         {
             var lecturerId = await GetCurrentLecturerIdAsync();
+            var response = await _attendanceService.GetStudentsByLessonAsync(lessonId, lecturerId);
 
-            var lesson = await _db.Lessons
-                .Include(l => l.Class)
-                    .ThenInclude(c => c.Subject)
-                .Include(l => l.Room)
-                .Include(l => l.Time)
-                .FirstOrDefaultAsync(l => l.LessonId == lessonId && l.LectureId == lecturerId);
-
-            if (lesson == null)
+            if (response == null)
             {
                 return NotFound(new { code = 404, message = "Lesson not found or not owned by lecturer" });
             }
-
-            var students = await _db.Classes
-                .Where(c => c.ClassId == lesson.ClassId)
-                .SelectMany(c => c.Students)
-                .Select(s => new
-                {
-                    s.StudentId,
-                    s.StudentCode,
-                    FirstName = s.User.FirstName,
-                    LastName = s.User.LastName
-                })
-                .OrderBy(s => s.StudentCode)
-                .ToListAsync();
-
-            var attendanceRecords = await _db.Attendances
-                .Where(a => a.LessonId == lessonId)
-                .ToDictionaryAsync(a => a.StudentId);
-
-            var now = DateTime.UtcNow;
-            var hasChanges = false;
-
-            foreach (var student in students)
-            {
-                if (!attendanceRecords.TryGetValue(student.StudentId, out var attendance))
-                {
-                    attendance = new Attendance
-                    {
-                        LessonId = lessonId,
-                        StudentId = student.StudentId,
-                        Status = "Absent",
-                        TimeAttendance = now
-                    };
-                    _db.Attendances.Add(attendance);
-                    attendanceRecords[student.StudentId] = attendance;
-                    hasChanges = true;
-                }
-            }
-
-            if (hasChanges)
-            {
-                await _db.SaveChangesAsync();
-            }
-
-            var response = new
-            {
-                lessonId = lesson.LessonId,
-                classId = lesson.ClassId,
-                date = FormatDate(lesson.Date),
-                roomName = lesson.Room?.RoomName,
-                timeSlot = FormatTimeRange(lesson.Time.StartTime, lesson.Time.EndTime),
-                subjectName = lesson.Class.Subject.SubjectName,
-                students = students.Select(student =>
-                {
-                    var attendance = attendanceRecords[student.StudentId];
-                    return new
-                    {
-                        studentId = student.StudentId,
-                        studentCode = student.StudentCode,
-                        fullName = string.Join(" ", new[] { student.FirstName, student.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))).Trim(),
-                        status = attendance.Status ?? "Absent",
-                        attendanceId = attendance.AttendanceId,
-                        timeAttendance = attendance.TimeAttendance
-                    };
-                }).ToList()
-            };
 
             return Ok(new { code = 200, data = response });
         }
@@ -288,47 +181,16 @@ public class AttendanceController : ControllerBase
         try
         {
             var lecturerId = await GetCurrentLecturerIdAsync();
-
-            var lesson = await _db.Lessons
-                .Include(l => l.Class)
-                .FirstOrDefaultAsync(l => l.LessonId == request.LessonId && l.LectureId == lecturerId);
-
-            if (lesson == null)
-            {
-                return NotFound(new { code = 404, message = "Lesson not found or not owned by lecturer" });
-            }
-
-            var isStudentInClass = await _db.Classes
-                .Where(c => c.ClassId == lesson.ClassId)
-                .SelectMany(c => c.Students)
-                .AnyAsync(s => s.StudentId == request.StudentId);
-
-            if (!isStudentInClass)
-            {
-                return NotFound(new { code = 404, message = "Student not found in this class" });
-            }
-
-            var attendance = await _db.Attendances
-                .FirstOrDefaultAsync(a => a.LessonId == request.LessonId && a.StudentId == request.StudentId);
+            var attendance = await _attendanceService.UpdateAttendanceAsync(
+                request.LessonId,
+                request.StudentId,
+                request.Status,
+                lecturerId);
 
             if (attendance == null)
             {
-                attendance = new Attendance
-                {
-                    LessonId = request.LessonId,
-                    StudentId = request.StudentId,
-                    Status = request.Status,
-                    TimeAttendance = DateTime.UtcNow
-                };
-                _db.Attendances.Add(attendance);
+                return NotFound(new { code = 404, message = "Lesson not found or student not in class" });
             }
-            else
-            {
-                attendance.Status = request.Status;
-                attendance.TimeAttendance = DateTime.UtcNow;
-            }
-
-            await _db.SaveChangesAsync();
 
             return Ok(new
             {
@@ -388,7 +250,7 @@ public class AttendanceController : ControllerBase
                 classInfo.SemesterId, 
                 lecturerId);
 
-            if (!classExists)
+            if (reportData == null || !reportData.Any())
             {
                 return NotFound(new { code = 404, message = "No attendance data found for this subject and semester" });
             }
@@ -400,12 +262,12 @@ public class AttendanceController : ControllerBase
                 {
                     student = new
                     {
-                        studentId = student.StudentId,
-                        studentCode = student.StudentCode,
+                        studentId = r.Student.StudentId,
+                        studentCode = r.Student.StudentCode,
                         user = new
                         {
-                            firstName = student.FirstName,
-                            lastName = student.LastName
+                            firstName = r.Student.User.FirstName,
+                            lastName = r.Student.User.LastName
                         }
                     },
                     lessons = r.Lessons.Select(l => new
@@ -459,78 +321,22 @@ public class AttendanceController : ControllerBase
         try
         {
             var lecturerId = await GetCurrentLecturerIdAsync();
-
-            var lesson = await _db.Lessons
-                .Include(l => l.Class)
-                .FirstOrDefaultAsync(l => l.LessonId == request.LessonId && l.LectureId == lecturerId);
-
-            if (lesson == null)
+            var attendancesDto = request.Attendances.Select(a => new AttendanceUpdateItemDto
             {
-                return NotFound(new { code = 404, message = "Lesson not found or not owned by lecturer" });
-            }
+                StudentId = a.StudentId,
+                Status = a.Status
+            }).ToList();
 
-            var validStudentIds = (await _db.Classes
-                .Where(c => c.ClassId == lesson.ClassId)
-                .SelectMany(c => c.Students.Select(s => s.StudentId))
-                .ToListAsync())
-                .ToHashSet();
-
-            var results = new List<object>();
-            var errors = new List<string>();
-            var now = DateTime.UtcNow;
-
-            var existingAttendances = await _db.Attendances
-                .Where(a => a.LessonId == request.LessonId)
-                .ToDictionaryAsync(a => a.StudentId);
-
-            foreach (var att in request.Attendances)
-            {
-                if (!validStudentIds.Contains(att.StudentId))
-                {
-                    errors.Add($"Student {att.StudentId} is not enrolled in class {lesson.ClassId}");
-                    continue;
-                }
-
-                if (existingAttendances.TryGetValue(att.StudentId, out var attendance))
-                {
-                    attendance.Status = att.Status;
-                    attendance.TimeAttendance = now;
-                    results.Add(new
-                    {
-                        attendanceId = attendance.AttendanceId,
-                        studentId = att.StudentId,
-                        status = att.Status,
-                        updated = true
-                    });
-                }
-                else
-                {
-                    attendance = new Attendance
-                    {
-                        LessonId = request.LessonId,
-                        StudentId = att.StudentId,
-                        Status = att.Status,
-                        TimeAttendance = now
-                    };
-                    _db.Attendances.Add(attendance);
-                    results.Add(new
-                    {
-                        attendanceId = attendance.AttendanceId,
-                        studentId = att.StudentId,
-                        status = att.Status,
-                        created = true
-                    });
-                }
-            }
-
-            await _db.SaveChangesAsync();
+            var results = await _attendanceService.UpdateBulkAttendanceAsync(
+                request.LessonId,
+                attendancesDto,
+                lecturerId);
 
             return Ok(new
             {
                 code = 200,
                 message = $"Updated {results.Count} attendance records",
-                data = results,
-                errors = errors.Count > 0 ? errors : null
+                data = results
             });
         }
         catch (InvalidOperationException ex)
