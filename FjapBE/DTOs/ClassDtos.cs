@@ -3,7 +3,6 @@
 
 public class ClassScheduleDto
 {
-    public int LessonId { get; set; }
     public int ClassId { get; set; }
     public string ClassName { get; set; } = "";
     public DateOnly Date { get; set; }
@@ -12,9 +11,7 @@ public class ClassScheduleDto
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
     public string SubjectCode { get; set; } = "";
-    public string? SubjectName { get; set; }
     public string LecturerCode { get; set; } = "";
-    public int? LectureId { get; set; }
 }
 
 public class SchedulePatternDto
