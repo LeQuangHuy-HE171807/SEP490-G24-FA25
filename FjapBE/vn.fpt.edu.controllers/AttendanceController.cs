@@ -221,6 +221,8 @@ public class AttendanceController : ControllerBase
     /// <summary>
     /// Lấy attendance report chi tiết cho một class (tất cả bản ghi điểm danh của từng lessonId cho mỗi student)
     /// Lấy tất cả lessons của subjectId trong semester
+    /// Lấy attendance report chi tiết cho một class (tất cả bản ghi điểm danh của từng lessonId cho mỗi student)
+    /// Lấy tất cả lessons của subjectId trong semester
     /// GET: api/attendance/classes/{classId}/report
     /// </summary>
     [HttpGet("classes/{classId}/report")]
@@ -229,55 +231,34 @@ public class AttendanceController : ControllerBase
         try
         {
             var lecturerId = await GetCurrentLecturerIdAsync();
-
-            // Verify that the lecturer teaches this class
-            var classExists = await _db.Lessons
+            
+            // Lấy thông tin class để lấy subjectId và semesterId
+            var classInfo = await _db.Classes
                 .AsNoTracking()
-                .AnyAsync(l => l.ClassId == classId && l.LectureId == lecturerId);
+                .Where(c => c.ClassId == classId)
+                .Select(c => new { c.SubjectId, c.SemesterId })
+                .FirstOrDefaultAsync();
 
-            if (!classExists)
+            if (classInfo == null)
             {
                 return NotFound(new { code = 404, message = "Class not found" });
             }
 
-            // Get all students in the class
-            var students = await _db.Classes
-                .Where(c => c.ClassId == classId)
-                .SelectMany(c => c.Students)
-                .Select(s => new
-                {
-                    s.StudentId,
-                    s.StudentCode,
-                    FirstName = s.User.FirstName,
-                    LastName = s.User.LastName
-                })
-                .OrderBy(s => s.StudentCode)
-                .ToListAsync();
+            // Lấy report detail theo subjectId và semesterId
+            var reportData = await _attendanceService.GetAttendanceReportDetailBySubjectAndSemesterAsync(
+                classInfo.SubjectId, 
+                classInfo.SemesterId, 
+                lecturerId);
 
-            // Get all lesson IDs for this class taught by this lecturer
-            var lessonIds = await _db.Lessons
-                .AsNoTracking()
-                .Where(l => l.ClassId == classId && l.LectureId == lecturerId)
-                .Select(l => l.LessonId)
-                .ToListAsync();
-
-            // Get all attendance records for these lessons
-            var attendances = await _db.Attendances
-                .AsNoTracking()
-                .Where(a => lessonIds.Contains(a.LessonId))
-                .ToListAsync();
-
-            // Group attendances by student and count present/absent
-            var reportData = students.Select(student =>
+            if (!classExists)
             {
-                var studentAttendances = attendances
-                    .Where(a => a.StudentId == student.StudentId)
-                    .ToList();
+                return NotFound(new { code = 404, message = "No attendance data found for this subject and semester" });
+            }
 
-                var presentCount = studentAttendances.Count(a => a.Status == "Present");
-                var absentCount = studentAttendances.Count(a => a.Status == "Absent" || a.Status == null);
-
-                return new
+            return Ok(new
+            {
+                code = 200,
+                data = reportData.Select(r => new
                 {
                     student = new
                     {
@@ -289,15 +270,19 @@ public class AttendanceController : ControllerBase
                             lastName = r.Student.User.LastName
                         }
                     },
-                    presentCount = presentCount,
-                    absentCount = absentCount
-                };
-            }).ToList();
-
-            return Ok(new
-            {
-                code = 200,
-                data = reportData
+                    lessons = r.Lessons.Select(l => new
+                    {
+                        lessonId = l.LessonId,
+                        classId = l.ClassId,
+                        className = l.ClassName,
+                        date = l.Date,
+                        roomName = l.RoomName,
+                        timeSlot = l.TimeSlot,
+                        status = l.Status,
+                        attendanceId = l.AttendanceId,
+                        timeAttendance = l.TimeAttendance
+                    }).ToList()
+                })
             });
         }
         catch (InvalidOperationException ex)
