@@ -377,7 +377,36 @@ const EditSchedule = () => {
   };
 
   const handleDeleteLesson = async (lessonId) => {
-    if (!lessonId) return;
+    console.log('=== handleDeleteLesson called ===');
+    console.log('lessonId received:', lessonId);
+    console.log('lessonId type:', typeof lessonId);
+    
+    if (!lessonId) {
+      console.error('handleDeleteLesson: lessonId is missing');
+      api.error({
+        message: 'Error',
+        description: 'Lesson ID is missing',
+        placement: 'bottomRight',
+        duration: 5,
+      });
+      return;
+    }
+
+    // Convert to number if it's a string
+    const numericLessonId = typeof lessonId === 'string' ? parseInt(lessonId, 10) : lessonId;
+    
+    if (isNaN(numericLessonId) || numericLessonId <= 0) {
+      console.error('handleDeleteLesson: Invalid lessonId:', lessonId);
+      api.error({
+        message: 'Error',
+        description: 'Invalid Lesson ID',
+        placement: 'bottomRight',
+        duration: 5,
+      });
+      return;
+    }
+
+    console.log('handleDeleteLesson - Valid lessonId:', numericLessonId);
 
     confirm({
       title: 'Delete Lesson',
@@ -387,11 +416,21 @@ const EditSchedule = () => {
       cancelText: 'Cancel',
       onOk: async () => {
         try {
+          console.log('Delete confirmed, calling API with lessonId:', numericLessonId);
           setSaving(true);
-          await ClassList.deleteLesson(lessonId);
           
-          // Remove lesson from loadedLessons
-          setLoadedLessons(prev => prev.filter(l => l.lessonId !== lessonId));
+          const response = await ClassList.deleteLesson(numericLessonId);
+          console.log('Delete lesson response:', response);
+          
+          // Remove lesson from loadedLessons (compare both string and number)
+          setLoadedLessons(prev => prev.filter(l => {
+            const lId = l.lessonId;
+            const match = lId === numericLessonId || lId === lessonId || String(lId) === String(lessonId);
+            if (match) {
+              console.log('Removing lesson from loadedLessons:', lId);
+            }
+            return !match;
+          }));
           
           api.success({
             message: 'Success',
@@ -404,9 +443,17 @@ const EditSchedule = () => {
           setSelectedLesson(null);
         } catch (error) {
           console.error('Error deleting lesson:', error);
+          console.error('Error response:', error?.response);
+          console.error('Error data:', error?.response?.data);
+          console.error('Error status:', error?.response?.status);
+          
+          const errorMessage = error?.response?.data?.message 
+            || error?.message 
+            || 'Failed to delete lesson. Please check if the lesson has attendances or homeworks.';
+          
           api.error({
-            message: 'Error',
-            description: error?.response?.data?.message || 'Failed to delete lesson',
+            message: 'Delete Failed',
+            description: errorMessage,
             placement: 'bottomRight',
             duration: 5,
           });
@@ -414,35 +461,111 @@ const EditSchedule = () => {
           setSaving(false);
         }
       },
+      onCancel: () => {
+        console.log('Delete cancelled');
+      },
     });
   };
 
-  const handleUpdateLesson = async (lessonId, updatedData) => {
+  const getWeekday = (dateStr) => {
+    const date = new Date(dateStr);
+    const day = date.getDay();
+    return day === 0 ? 8 : day + 1; // Monday = 2, Sunday = 8
+  };
+
+  const handleUpdateLesson = async (lessonId, updatedData, batchOptions = null) => {
     try {
       setSaving(true);
-      await ClassList.updateLesson(lessonId, updatedData);
-      
-      // Update lesson in loadedLessons
-      setLoadedLessons(prev => prev.map(l => {
-        if (l.lessonId === lessonId) {
-          // Update room name if roomId changed
-          const room = rooms.find(r => r.value === String(updatedData.roomId));
-          return {
-            ...l,
-            ...updatedData,
-            room: room ? room.label : l.room,
-            roomId: String(updatedData.roomId),
+
+      if (batchOptions && batchOptions.mode === 'all' && batchOptions.lessonsToUpdate) {
+        // Batch update: update tất cả lesson cùng thứ-slot
+        const { lessonsToUpdate, newDate, originalWeekday, newWeekday, weekStart } = batchOptions;
+        const dateDiff = newWeekday - originalWeekday;
+        
+        console.log('Batch update mode - lessons to update:', lessonsToUpdate);
+        console.log('Original weekday:', originalWeekday, 'New weekday:', newWeekday);
+        console.log('Date diff:', dateDiff);
+
+        // Update từng lesson một
+        const updatePromises = lessonsToUpdate.map(async (id) => {
+          const lessonToUpdate = loadedLessons.find(l => l.lessonId === id);
+          if (!lessonToUpdate || !lessonToUpdate.date) return;
+
+          // Tính toán date mới dựa trên weekday mới trong cùng tuần
+          const originalDate = lessonToUpdate.date;
+          const originalDateObj = new Date(originalDate);
+          const newDateObj = new Date(originalDateObj);
+          newDateObj.setDate(originalDateObj.getDate() + dateDiff);
+          const newDateStr = toYMD(newDateObj);
+
+          const batchUpdateData = {
+            date: newDateStr,
+            timeId: updatedData.timeId,
+            roomId: updatedData.roomId,
           };
-        }
-        return l;
-      }));
-      
-      api.success({
-        message: 'Success',
-        description: 'Lesson updated successfully',
-        placement: 'bottomRight',
-        duration: 3,
-      });
+
+          console.log(`Updating lesson ${id} from ${originalDate} (weekday ${originalWeekday}) to ${newDateStr} (weekday ${newWeekday})`);
+          return ClassList.updateLesson(id, batchUpdateData);
+        });
+
+        await Promise.all(updatePromises);
+
+        // Update tất cả lesson trong loadedLessons
+        setLoadedLessons(prev => prev.map(l => {
+          if (lessonsToUpdate.includes(l.lessonId) && l.date) {
+            const originalDate = l.date;
+            const originalDateObj = new Date(originalDate);
+            const newDateObj = new Date(originalDateObj);
+            newDateObj.setDate(originalDateObj.getDate() + dateDiff);
+            const newDateStr = toYMD(newDateObj);
+
+            const room = rooms.find(r => r.value === String(updatedData.roomId));
+            return {
+              ...l,
+              date: newDateStr,
+              weekday: newWeekday,
+              timeId: updatedData.timeId,
+              room: room ? room.label : l.room,
+              roomId: String(updatedData.roomId),
+            };
+          }
+          return l;
+        }));
+
+        api.success({
+          message: 'Success',
+          description: `${lessonsToUpdate.length} lessons updated successfully`,
+          placement: 'bottomRight',
+          duration: 3,
+        });
+      } else {
+        // Single update: chỉ update lesson hiện tại
+        await ClassList.updateLesson(lessonId, updatedData);
+        
+        // Update lesson in loadedLessons
+        setLoadedLessons(prev => prev.map(l => {
+          if (l.lessonId === lessonId) {
+            // Update room name if roomId changed
+            const room = rooms.find(r => r.value === String(updatedData.roomId));
+            const newWeekday = getWeekday(updatedData.date);
+            return {
+              ...l,
+              ...updatedData,
+              weekday: newWeekday,
+              room: room ? room.label : l.room,
+              roomId: String(updatedData.roomId),
+            };
+          }
+          return l;
+        }));
+        
+        api.success({
+          message: 'Success',
+          description: 'Lesson updated successfully',
+          placement: 'bottomRight',
+          duration: 3,
+        });
+      }
       
       setEditModalVisible(false);
       setSelectedLesson(null);
@@ -707,6 +830,8 @@ const EditSchedule = () => {
           setSelectedLesson(null);
         }}
         saving={saving}
+        loadedLessons={loadedLessons}
+        currentWeekStart={currentWeekStart}
       />
     </Layout>
   );

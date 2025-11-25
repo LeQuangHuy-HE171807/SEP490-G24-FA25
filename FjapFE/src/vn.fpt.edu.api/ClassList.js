@@ -106,8 +106,17 @@ class ClassList {
 
   // Delete lesson
   static async deleteLesson(lessonId) {
-    const response = await api.delete(`/api/staffAcademic/classes/lessons/${lessonId}`);
-    return response.data?.data ?? response.data;
+    console.log('ClassList.deleteLesson - calling API with lessonId:', lessonId);
+    try {
+      const response = await api.delete(`/api/staffAcademic/classes/lessons/${lessonId}`);
+      console.log('ClassList.deleteLesson - response:', response);
+      console.log('ClassList.deleteLesson - response.data:', response.data);
+      return response.data?.data ?? response.data ?? response;
+    } catch (error) {
+      console.error('ClassList.deleteLesson - error:', error);
+      console.error('ClassList.deleteLesson - error.response:', error.response);
+      throw error;
+    }
   }
 }
 
