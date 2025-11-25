@@ -88,10 +88,9 @@ public class MaterialsController : ControllerBase
                 );
 
             // If paging requested, return paged envelope. Otherwise keep legacy array-shaped response.
-            // Normalize page: if page is provided but <= 0, default to page 1
-            if (page.HasValue)
+            if (page.HasValue && page.Value > 0)
             {
-                var p = page.Value > 0 ? page.Value : 1;
+                var p = page.Value;
                 var ps = (pageSize.HasValue && pageSize.Value > 0) ? Math.Min(pageSize.Value, 500) : 20;
                 var total = await materialsQuery.CountAsync();
 
@@ -240,9 +239,6 @@ public class MaterialsController : ControllerBase
     {
         try
         {
-            if (id <= 0)
-                return BadRequest(new { code = 400, message = "Invalid material ID. ID must be greater than 0" });
-
             var material = await _db.Materials
                 .AsNoTracking()
                 .Include(m => m.Subject)
@@ -308,9 +304,6 @@ public class MaterialsController : ControllerBase
     {
         try
         {
-            if (id <= 0)
-                return BadRequest(new { code = 400, message = "Invalid material ID. ID must be greater than 0" });
-
             var material = await _db.Materials
                 .AsNoTracking()
                 .Include(m => m.Subject)
@@ -384,18 +377,7 @@ public class MaterialsController : ControllerBase
     {
         try
         {
-            // Validate ModelState (for DTO validation attributes)
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new { code = 400, message = "Invalid request data", errors = ModelState });
-            }
-
             var currentUserId = GetCurrentUserId();
-
-            // Validate SubjectId exists
-            var subjectExists = await _db.Subjects.AnyAsync(s => s.SubjectId == request.SubjectId);
-            if (!subjectExists)
-                return BadRequest(new { code = 400, message = "Subject not found" });
 
             var material = new Material
             {
@@ -473,27 +455,13 @@ public class MaterialsController : ControllerBase
     {
         try
         {
-            if (id <= 0)
-                return BadRequest(new { code = 400, message = "Invalid material ID. ID must be greater than 0" });
-
             if (id != request.MaterialId)
                 return BadRequest(new { code = 400, message = "Id mismatch" });
-
-            // Validate ModelState (for DTO validation attributes)
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(new { code = 400, message = "Invalid request data", errors = ModelState });
-            }
 
             var currentUserId = GetCurrentUserId();
             var existing = await _materialService.GetByIdAsync(id);
             if (existing == null)
                 return NotFound(new { code = 404, message = "Material not found" });
-
-            // Validate SubjectId exists
-            var subjectExists = await _db.Subjects.AnyAsync(s => s.SubjectId == request.SubjectId);
-            if (!subjectExists)
-                return BadRequest(new { code = 400, message = "Subject not found" });
 
             existing.Title = request.Title;
             existing.Description = request.Description;
@@ -520,9 +488,6 @@ public class MaterialsController : ControllerBase
     {
         try
         {
-            if (id <= 0)
-                return BadRequest(new { code = 400, message = "Invalid material ID. ID must be greater than 0" });
-
             var material = await _materialService.GetByIdAsync(id);
             if (material == null)
                 return NotFound(new { code = 404, message = "Material not found" });
