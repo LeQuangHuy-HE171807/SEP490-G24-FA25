@@ -97,6 +97,27 @@ class ClassList {
     });
     return response.data?.data ?? response.data;
   }
+
+  // Update lesson
+  static async updateLesson(lessonId, payload) {
+    const response = await api.put(`/api/staffAcademic/classes/lessons/${lessonId}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  // Delete lesson
+  static async deleteLesson(lessonId) {
+    console.log('ClassList.deleteLesson - calling API with lessonId:', lessonId);
+    try {
+      const response = await api.delete(`/api/staffAcademic/classes/lessons/${lessonId}`);
+      console.log('ClassList.deleteLesson - response:', response);
+      console.log('ClassList.deleteLesson - response.data:', response.data);
+      return response.data?.data ?? response.data ?? response;
+    } catch (error) {
+      console.error('ClassList.deleteLesson - error:', error);
+      console.error('ClassList.deleteLesson - error.response:', error.response);
+      throw error;
+    }
+  }
 }
 
 export default ClassList;
