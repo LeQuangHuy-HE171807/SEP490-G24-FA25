@@ -19,6 +19,7 @@ export default function ImportStudent() {
   console.log("=== ImportStudent component loaded ===");
   const [form] = Form.useForm();
   const [msg, msgCtx] = message.useMessage();
+  console.log("Form initialized:", form);
   const [loading, setLoading] = useState(false);
   const [levels, setLevels] = useState([]);
   const [semesters, setSemesters] = useState([]);
